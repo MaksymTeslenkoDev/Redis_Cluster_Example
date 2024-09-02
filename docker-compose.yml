@@ -1,0 +1,88 @@
+version: '3'
+
+services:
+  redis-master:
+    image: redis:latest
+    container_name: redis-master
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - redis-master-data:/data
+    ports:
+      - '6379:6379'
+    networks:
+      - redis-net
+
+  slave1:
+    image: redis:latest
+    container_name: slave1
+    environment:
+      - REDIS_REPLICATION_MODE=slave
+      - REDIS_MASTER_HOST=redis-master
+      - REDIS_MASTER_PORT=6379
+    command: redis-server /usr/local/etc/redis/redis.conf --slaveof redis-master 6379
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - redis-slave-1-data:/data
+    ports:
+      - '6380:6379'
+    networks:
+      - redis-net
+
+  slave2:
+    image: redis:latest
+    container_name: slave2
+    environment:
+      - REDIS_REPLICATION_MODE=slave
+      - REDIS_MASTER_HOST=redis-master
+      - REDIS_MASTER_PORT=6379
+    command: redis-server /usr/local/etc/redis/redis.conf --slaveof redis-master 6379
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - redis-slave-2-data:/data
+    ports:
+      - '6381:6379'
+    networks:
+      - redis-net
+
+  slave3:
+    image: redis:latest
+    container_name: slave3
+    command: redis-server /usr/local/etc/redis/redis.conf --slaveof redis-master 6379
+    environment:
+      - REDIS_REPLICATION_MODE=slave
+      - REDIS_MASTER_HOST=redis-master
+      - REDIS_MASTER_PORT=6379
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - redis-slave-3-data:/data
+    ports:
+      - '6382:6379'
+    networks:
+      - redis-net
+
+  redis-insigth:
+    image: redis/redisinsight:latest
+    container_name: redis-insigth
+    ports:
+      - '5540:5540'
+    volumes:
+      - redisinsight-data:/data
+    depends_on:
+      - redis-master
+      - slave1
+      - slave2
+      - slave3
+    networks:
+      - redis-net
+
+volumes:
+  redis-master-data:
+  redisinsight-data:
+  redis-slave-1-data:
+  redis-slave-2-data:
+  redis-slave-3-data:
+
+networks:
+  redis-net:
+    driver: bridge
