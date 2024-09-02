@@ -14,7 +14,7 @@ module.exports = async ({ app: appConfig, server: serverConfig }) => {
       const key = 'hello';
       const value = 'world';
 
-      return this.cache.set(key, value, 60 * 20);
+      return this.wordsCache.set(key, value, 60 * 20);
     } catch (err) {
       return { error: err.message };
     }
@@ -36,11 +36,10 @@ module.exports = async ({ app: appConfig, server: serverConfig }) => {
 
   app.post('/add', async function addHandler(request, reply) {
     try {
-      console.log('request.body ', request.body);
       const key = request.body?.key || faker.number.int();
       const value = request.body?.value || faker.word.sample();
 
-      return this.cache.set(key.toString(), value, 60 * 5);
+      return this.wordsCache.set(key.toString(), value);
     } catch (err) {
       return { error: err.message };
     }

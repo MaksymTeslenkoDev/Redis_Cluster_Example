@@ -2,21 +2,17 @@
 
 const fp = require('fastify-plugin');
 const redis = require('redis');
-const Cache = require('../src/cache');
+const { WordsCache } = require('../src/cache');
 
-const TTL_DEFAULT = 60 * 5; // 5 minutes
 async function cache(fastify) {
   const client = await redis.createClient({
     rootNodes: [{ url: 'redis://localhost:6379' }],
   });
 
   await client.connect();
-  const cache = new Cache({
-    cacheClient: client,
-    ttlDefault: TTL_DEFAULT,
-  });
+  const wordsCache = new WordsCache(client, { ttl: 60 * 5 });
 
-  fastify.decorate('cache', cache);
+  fastify.decorate('wordsCache', wordsCache);
 
   client.on('error', (err) => {
     fastify.log.error(`Error happend in Redis: ${err.message}`);
