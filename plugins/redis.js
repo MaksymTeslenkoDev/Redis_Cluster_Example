@@ -6,7 +6,7 @@ const { WordsCache } = require('../src/cache');
 
 async function cache(fastify) {
   const client = await redis.createClient({
-    rootNodes: [{ url: 'redis://localhost:6379' }],
+    rootNodes: [{ url: 'sentinel://localhost:26379' }],
   });
 
   await client.connect();
