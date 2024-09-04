@@ -5,7 +5,7 @@ const { StreamForLogger } = require('../src/logger.js');
 module.exports = ({ envs, appPath }) =>
   Object.freeze({
     logger: {
-      level: envs.LOG_LEVEl || 'info',
+      level: envs.LOG_LEVEL || 'info',
       transport: {
         target: 'pino-pretty'
       },

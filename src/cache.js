@@ -4,6 +4,7 @@ const timers = require('node:timers/promises');
 
 const DEFAULT_LOCK_TTL = 5;
 const DEFAULT_KEY_TTL = 60; // 1 minute
+
 class Cache {
   constructor({
     cacheClient,
@@ -16,12 +17,11 @@ class Cache {
   }
 
   async set(key, value, ttl = this.ttl) {
-    return await this.cache.set(key, value, {
-      EX: ttl,
-    });
+    return await this.cache.set(key, value, 'EX', ttl);
   }
 
   async get(key, params) {
+    let retries = params?.retries || 10;
     const value = await this.cache.get(key);
     if (value !== null) {
       return value;
@@ -29,25 +29,49 @@ class Cache {
 
     // Cache miss - try to acquire lock to prevent stampede
     const lockKey = `${key}:lock`;
-    const lockAcquired = await this.cache.set(lockKey, 'locked', {
-      NX: true, // Only set the lock if it doesn't already exist
-      EX: this.lockTTL, // Lock expiration to prevent stale locks
-    });
+    const lockAcquired = await this.cache.set(
+      lockKey,
+      'locked',
+      'NX',
+      'EX',
+      this.lockTTL,
+    );
 
     if (lockAcquired) {
-      const data = await this.getData({ key, ...params });
-      await this.set(key, data, this.ttlDefault);
-      await this.cache.del(lockKey);
-      return data;
+      try {
+        
+        const data = await this.getData({ key, ...params });
+        await this.set(key, data, this.ttlDefault);
+        return data;
+      } finally {
+        console.log('Releasing lock ');
+        await this.cache.del(lockKey);
+      }
     } else {
-      while (true) {
-        const cachedValue = await this.cache.get(key);
-        if (cachedValue !== null) {
-          return cachedValue;
+      while (retries > 0) {
+        const [value, lock] = await this.cache
+          .multi()
+          .get(key)
+          .get(lockKey)
+          .exec();
+
+        // lock = [null, null] | [null, 'locked']
+        // value = [null, null] | [null, 'value']
+
+        if (lock[1] === null) {
+          await this.cache.set(lockKey, 'locked', 'EX', this.lockTTL);
         }
 
-        await this.sleep(100); // Wait 100ms before checking again
+        if (value[1] !== null) {
+          console.log('Cache populated');
+          return value;
+        }
+
+        console.log('waiting for cache to be populated');
+        retries--;
+        await timers.setTimeout(500);
       }
+      throw new Error('Cache miss after 5 retries');
     }
   }
 
@@ -59,10 +83,9 @@ class WordsCache extends Cache {
     super({ cacheClient, ...params });
   }
   async getData({ key }) {
-    // This is a placeholder for a real db call
     console.log('Fetching words data from db for key: ', key);
-    await timers.setTimeout(1000);
-    return Promise.resolve(faker.word.sample());
+    await timers.setTimeout(2000);
+    return await Promise.resolve(faker.word.sample());
   }
 }
 

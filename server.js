@@ -4,19 +4,23 @@ const fastify = require('fastify');
 const { faker } = require('@faker-js/faker');
 const cache = require('./plugins/redis.js');
 
-module.exports = async ({ app: appConfig, server: serverConfig }) => {
+module.exports = async ({
+  app: appConfig,
+  server: serverConfig,
+  redis: redisConfig,
+}) => {
   const app = fastify({ ...serverConfig });
 
-  app.register(cache);
+  app.register(cache, { redis: redisConfig });
 
   app.post('/', async function seed(request, reply) {
     try {
       const key = 'hello';
       const value = 'world';
 
-      return this.wordsCache.set(key, value, 60 * 20);
+      return await this.wordsCache.set(key, value, 10);
     } catch (err) {
-      return { error: err.message };
+      throw new Error(err.message);
     }
   });
 
@@ -24,13 +28,9 @@ module.exports = async ({ app: appConfig, server: serverConfig }) => {
     try {
       const { id } = request.params;
       const value = await this.wordsCache.get(id);
-      if (!value) {
-        value = faker.word.sample();
-        await this.cache.set(id, value, 60 * 5);
-      }
       return { word: value };
     } catch (err) {
-      return { error: err.message };
+      throw new Error(err.message);
     }
   });
 
@@ -41,7 +41,7 @@ module.exports = async ({ app: appConfig, server: serverConfig }) => {
 
       return this.wordsCache.set(key.toString(), value);
     } catch (err) {
-      return { error: err.message };
+      throw new Error(err.message);
     }
   });
 
